@@ -100,9 +100,7 @@ select { min-height: 44px; max-width: 100%; padding: 8px 32px 8px 12px; color: v
 .ticks span:nth-child(even) { display: none; }
 .track { display: flex; position: relative; gap: 1px; min-width: 0; padding: 2px; border-radius: 6px; background: #f1f5f7; }
 .segment { flex: var(--duration) 1 0; min-width: 0; min-height: 32px; border: 0; padding: 0; border-radius: 4px; overflow: hidden; font-size: .72rem; white-space: nowrap; text-overflow: clip; }
-.segment { display:grid; grid-template-rows:44px 17px; align-content:start; }
-.segment img { display:block; width:100%; height:44px; object-fit:cover; }
-.segment span { overflow:hidden; text-overflow:ellipsis; }
+.segment span { display:block; overflow:hidden; text-overflow:ellipsis; }
 .segment.commercial { background:var(--ad-bg); color:var(--ad-fg); }
 .segment:hover { filter: brightness(.92); }
 .segment[aria-pressed="true"] { outline:2px solid var(--focus); outline-offset:-2px; position:relative; z-index:1; }

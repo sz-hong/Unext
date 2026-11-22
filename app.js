@@ -112,7 +112,7 @@ function renderMetrics() {
 function renderTimeline() {
   const axis = ['12:00', '12:15', '12:30', '12:45', '13:00'];
   const recording=$('timeline-mode').value==='recording';
-  $('timeline-note').textContent=recording ? '各檔自 12:00 起算；縮圖左緣對準取樣時間。「廣告」表示該影格已人工核對，未標示者為一般取樣。' : '區段與標題為填表示範。廣告縮圖採同台廣告實例，原片位移見回查。';
+  $('timeline-note').textContent=recording ? '選取時間或「廣告」，在證據回查看該台原片。各檔自 12:00 起算，廣告取樣點已人工核對。' : '點選區段回查看原片。標題與區段為填表示範；廣告顯示同台實例及原片位移。';
   $('timeline-mode').closest('.panel-head').querySelector('.legend').hidden=recording;
   const lanes = DEMO.channels.map(({ id, name }) =>
     `<div class="timeline-row"><span class="lane-label">${name}</span><div class="track" role="group" aria-label="${name}播出區段">
@@ -123,7 +123,7 @@ function renderTimeline() {
         const summary = `${name} ${stamp(segment.start)} 至 ${stamp(segment.end)}，示範標記：${label}，原片位移 +${elapsed(example?.offset ?? segment.start)}`;
         return `<button class="segment ${segment.type === 'ad' ? 'commercial' : segment.type}"
           style="--duration:${length(segment)}" data-channel="${id}" data-segment="${segment.id}"
-          aria-label="${summary}" title="${summary}" aria-pressed="${selected}"><img src="${example?.image ?? segmentFrame(id,segment.start)}" width="640" height="360" alt=""><span>${length(segment) >= 180 || example ? label : ''}</span></button>`;
+          aria-label="${summary}" title="${summary}" aria-pressed="${selected}"><span>${length(segment) >= 180 || example ? label : ''}</span></button>`;
       }).join('')}
     </div></div>`).join('');
   $('timeline').innerHTML = `<div class="timeline-row" aria-hidden="true"><span></span><div class="ticks">${axis.map((time) => `<span>${time}</span>`).join('')}</div></div>${lanes}`;
@@ -135,7 +135,7 @@ function recordingLane(id,name) {
     const ad=recordingAds[id][m];
     const offset=m*60+15;
     const description=`${name} 原片 +${elapsed(offset)} · ${ad || '取樣影格'}`;
-    return `<button class="segment ${ad?'commercial':'news'}" style="--duration:${(i+1<points.length?points[i+1]*60+15:3600)-offset}" data-recording-minute="${m}" data-channel="${id}" title="${description}" aria-label="${description}" aria-pressed="${id===state.channel && m===state.minute && state.frameMode==='minute'}"><img src="${minuteFrame(id,m)}" alt=""><span>${ad?'廣告':elapsed(offset)}</span></button>`;
+    return `<button class="segment ${ad?'commercial':'news'}" style="--duration:${(i+1<points.length?points[i+1]*60+15:3600)-offset}" data-recording-minute="${m}" data-channel="${id}" title="${description}" aria-label="${description}" aria-pressed="${id===state.channel && m===state.minute && state.frameMode==='minute'}"><span>${ad?'廣告':elapsed(offset)}</span></button>`;
   }).join('');
 }
 
