@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>新聞監看工作台</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="sample-data.js" defer></script>
+  <script src="topic-data.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <symbol id="wave" viewBox="0 0 24 24"><path d="M2 12h4l3-7 5 14 3-7h5"/></symbol>
+    <symbol id="grid" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M9 9v11m6-11v11"/></symbol>
+    <symbol id="chart" viewBox="0 0 24 24"><path d="M4 4v16h16M9 15v-3m5 3V8m5 7V5"/></symbol>
+    <symbol id="arrow-down" viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v4h16v-4"/></symbol>
+    <symbol id="left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+    <symbol id="right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="play" viewBox="0 0 24 24"><path d="m8 5 12 7-12 7z"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="file" viewBox="0 0 24 24"><path d="M5 3h9l5 5v13H5zm8 0v6h6M8 13h8m-8 4h8"/></symbol>
+    <symbol id="close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+  </svg>
+
+  <a class="skip" href="#main">跳至工作區</a>
+  <header class="topbar">
+    <div class="top-inner">
+      <div class="brand"><span class="brand-mark"><svg><use href="#wave"/></svg></span>新聞監看工作台</div>
+      <nav aria-label="主要功能">
+        <button class="nav-item" data-view="monitor" aria-current="page"><svg><use href="#grid"/></svg>監看與覆核</button>
+        <button class="nav-item" data-view="analysis"><svg><use href="#chart"/></svg>廣告分析</button>
+        <button class="nav-item" data-view="topics"><svg><use href="#wave"/></svg>議題分析</button>
+      </nav>
+      <span class="demo-tag">示範模式</span>
+    </div>
+  </header>
+
+  <main id="main" tabindex="-1">
+    <section class="hero" aria-labelledby="page-title">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span>四台一小時 · 合成監看批次</p>
+        <h1 id="page-title">監看與覆核</h1>
+        <p id="page-description">核對時間、回看證據，從同一條時間軸預覽 Excel。</p>
+      </div>
+      <div class="hero-tools">
+        <div class="version-control">
+          <label for="version">資料版本</label>
+          <select id="version">
+            <option value="original">自動原始版（示範）</option>
+            <option value="reviewed" disabled>覆核修訂版（示範）</option>
+          </select>
+        </div>
+        <a class="button primary" id="download" href="assets/示範_自動原始版.xlsx" download><svg><use href="#arrow-down"/></svg>下載 Excel</a>
+      </div>
+    </section>
+
+    <section class="metrics" aria-label="批次摘要" id="metrics"></section>
+    <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+
+    <div id="monitor-view" class="workspace">
+      <div class="operation">
+        <section class="panel" aria-labelledby="timeline-title">
+          <div class="panel-head">
+            <div><h2 id="timeline-title">四台監看時間軸</h2><p>12:00–13:00 · 選擇區段查看證據</p></div>
+            <div class="legend" aria-label="時間軸圖例">
+              <span><i class="news"></i>新聞</span><span><i class="ad"></i>廣告</span>
+              <span><i class="pending"></i>未決</span><span><i class="gap"></i>缺訊</span>
+            </div>
+          </div>
+          <div id="timeline" class="timeline"></div>
+        </section>
+
+        <section class="panel" aria-labelledby="sheet-title">
+          <div class="panel-head sheet-head">
+            <div><h2 id="sheet-title">Excel 分鐘預覽</h2><p>12監看 · F／J／N／R 欄</p></div>
+            <div class="table-controls">
+              <label class="sr-only" for="filter">格位篩選</label>
+              <select id="filter"><option value="all">所有分鐘</option><option value="pending">未決與缺訊</option><option value="changed">覆核異動</option></select>
+            </div>
+          </div>
+          <div class="sheet-scroll"><table class="sheet">
+            <thead id="sheet-head"></thead>
+            <tbody id="sheet-body"></tbody>
+          </table></div>
+          <div class="table-footer">
+            <span id="range-label"></span>
+            <div class="pager">
+              <button type="button" class="square" id="prev" aria-label="上一頁"><svg><use href="#left"/></svg></button>
+              <button type="button" class="square" id="next" aria-label="下一頁"><svg><use href="#right"/></svg></button>
+            </div>
+          </div>
+        </section>
+      </div>
+      <aside class="panel inspector" aria-labelledby="inspector-title" id="inspector"></aside>
+    </div>
+
+    <div id="analysis-view" class="analysis-view" hidden>
+      <section class="panel" aria-labelledby="ads-title">
+        <div class="panel-head">
+          <div><h2 id="ads-title">廣告破口清單</h2><p>以區段起訖統計 · 合成示意</p></div>
+          <div class="table-controls"><label class="sr-only" for="channel-filter">台別</label><select id="channel-filter"><option value="all">全部台別</option></select></div>
+        </div>
+        <div id="ad-summary" class="ad-summary"></div>
+        <div class="sheet-scroll"><table class="ad-table">
+          <thead><tr><th scope="col">台別</th><th scope="col">區段起點</th><th scope="col">區段終點</th><th scope="col">觀測時長</th><th scope="col">觀測狀態</th><th scope="col">來源</th></tr></thead>
+          <tbody id="ad-body"></tbody>
+        </table></div>
+        <p class="analysis-note">廣告占比＝已確認的廣告秒數 ÷ 有效可判讀秒數。覆蓋率＝有效可判讀秒數 ÷ 監看視窗秒數。</p>
+      </section>
+    </div>
+    <section id="business-view" class="business-view" aria-labelledby="business-title" hidden>
+      <div class="business-head">
+        <label for="analysis-page"><strong id="business-title">分析項目</strong>
+          <select id="analysis-page">
+            <option value="categories">議題表現</option>
+            <option value="minutes">流失點與黃金分鐘</option>
+            <option value="break">廣告價值</option>
+            <option value="competition">競品對照</option>
+            <option value="platforms">跨平台延伸</option>
+            <option value="timeline">播出時間軸與收視</option>
+            <option value="matrix">各平台議題瀏覽數</option>
+          </select>
+        </label>
+        <label for="business-topic" class="sr-only">選擇分析議題</label><select id="business-topic"></select>
+      </div>
+      <div id="business-cards" class="business-cards"></div>
+    </section>
+    <div id="topics-view" class="topics-workspace" hidden>
+      <section class="panel" aria-labelledby="topic-timeline-title">
+        <div class="panel-head">
+          <div><h2 id="topic-timeline-title">播出時間軸與收視</h2><p>收視率取各播出區段的起始分鐘 · 合成示意</p></div>
+          <button class="button neutral" id="clear-topic" hidden>顯示全部</button>
+        </div>
+        <div class="topic-scroll"><table class="topic-table">
+          <thead><tr><th scope="col">議題</th><th scope="col">台別</th><th scope="col">播出起訖</th><th scope="col">收視率</th><th scope="col">來源</th></tr></thead>
+          <tbody id="topic-airings"></tbody>
+        </table></div>
+        <p class="analysis-note">收視率是台別與分鐘的數值，留缺代表未取得。</p>
+      </section>
+      <section class="panel" aria-labelledby="topic-views-title">
+        <div class="panel-head"><div><h2 id="topic-views-title">各平台議題瀏覽數</h2><p>貼文發布後 24 小時 · 點選議題查看播出紀錄</p></div></div>
+        <div class="topic-scroll"><table class="topic-table social-table">
+          <thead id="topic-view-head"></thead>
+          <tbody id="topic-views"></tbody>
+        </table></div>
+        <p class="analysis-note">各平台各自計量。留缺表示未取得。</p>
+      </section>
+    </div>
+    <footer>合成資料僅供操作展示 · 11/06 影像另標原片參考</footer>
+  </main>
+
+  <dialog id="review-dialog" aria-labelledby="review-title">
+    <form id="review-form" method="dialog">
+      <div class="panel-head">
+        <div><h2 id="review-title">預覽覆核差異</h2><p>民視 · 12:38 · N43</p></div>
+        <button type="button" class="square" id="dialog-close" aria-label="關閉"><svg><use href="#close"/></svg></button>
+      </div>
+      <div class="dialog-content">
+        <dl class="diff">
+          <div><dt>原始</dt><dd id="diff-original"></dd></div>
+          <div><dt>修訂</dt><dd id="diff-reviewed"></dd></div>
+        </dl>
+        <div id="extra-diff" class="extra-diff"></div>
+        <label for="reason">修正原因</label>
+        <select id="reason" required><option value="分類">分類</option><option value="主標歸屬">主標歸屬</option><option value="時間校準">時間校準</option></select>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="button neutral" id="dialog-cancel">取消</button>
+        <button type="submit" class="button primary"><svg><use href="#check"/></svg>套用示範修訂</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>
