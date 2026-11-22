@@ -5,7 +5,7 @@ const SAMPLE = { channel: 'ftv', minute: 38, segment: 'ftv-2302' };
 const PAGE_SIZE = 6;
 const state = {
   view: 'monitor', version: 'original', channel: SAMPLE.channel, minute: SAMPLE.minute,
-  segment: SAMPLE.segment, filter: 'all', page: 6, review: null, adChannel: 'all', topic: null,
+  segment: SAMPLE.segment, frameMode: 'segment', filter: 'all', page: 6, review: null, adChannel: 'all', topic: null,
 };
 const statusLabels = {
   news: '新聞', ad: '廣告', pending: '待確認', gap: '缺訊', continuation: '延續',
@@ -26,6 +26,7 @@ const cellChanged = (minute, id) =>
   DEMO.versions.original.rows[minute][id].value !== DEMO.versions.reviewed.rows[minute][id].value;
 const isUncertain = (cell) => cell.status === 'pending' || cell.status === 'gap';
 const minuteFrame = (channel, minute) => `assets/frames/${channel}/${String(minute).padStart(2,'0')}.jpg`;
+const segmentFrame = (channel, start) => `assets/segments/${channel}/${start}.jpg`;
 
 // Synthetic minute series. Preserve the published comparison cases and their baselines.
 const demoRatings = Object.fromEntries(DEMO.channels.map(({id}, i) => [id,
@@ -103,10 +104,10 @@ function renderTimeline() {
       ${source().tracks[id].map((segment) => {
         const selected = state.channel === id && state.segment === segment.id;
         const label = segment.type === 'news' ? segment.label : statusLabels[segment.type];
-        const summary = `${name} ${stamp(segment.start)} 至 ${stamp(segment.end)} ${label}`;
-        return `<button class="segment ${segment.type}${length(segment) >= 200 ? ' long' : ''}"
+        const summary = `${name} ${stamp(segment.start)} 至 ${stamp(segment.end)}，示範標記：${label}，原片位移 +${elapsed(segment.start)}`;
+        return `<button class="segment ${segment.type === 'ad' ? 'commercial' : segment.type}"
           style="--duration:${length(segment)}" data-channel="${id}" data-segment="${segment.id}"
-          aria-label="${summary}" title="${summary}" aria-pressed="${selected}">${length(segment) >= 200 ? label : ''}</button>`;
+          aria-label="${summary}" title="${summary}" aria-pressed="${selected}"><img src="${segmentFrame(id,segment.start)}" width="640" height="360" alt=""><span>${length(segment) >= 180 ? label : ''}</span></button>`;
       }).join('')}
     </div></div>`).join('');
   $('timeline').innerHTML = `<div class="timeline-row" aria-hidden="true"><span></span><div class="ticks">${axis.map((time) => `<span>${time}</span>`).join('')}</div></div>${lanes}`;
@@ -155,6 +156,9 @@ function renderInspector() {
     ?? lane.find((entry) => cell.segments.includes(entry.id) && isUncertain({ status: entry.type }))
     ?? lane.find((entry) => cell.segments.includes(entry.id));
   state.segment = selected.id;
+  const segmentStill = state.frameMode === 'segment';
+  const offset = segmentStill ? selected.start : minute*60+15;
+  const still = segmentStill ? segmentFrame(channel,selected.start) : minuteFrame(channel,minute);
   const demoCase = channel === SAMPLE.channel && minute === SAMPLE.minute;
   const isDiff = state.version === 'reviewed' && cellChanged(minute, channel);
   const clip = demoCase;
@@ -175,10 +179,10 @@ function renderInspector() {
       </div>
       <figure class="sample-source">
         <div class="media" id="media">
-          <img src="${minuteFrame(channel, minute)}" alt="${name} 11/06 側錄檔案位移 ${elapsed(minute*60+15)}" width="640" height="360">
+          <img src="${still}" alt="${name} 11/06 側錄檔案位移 ${elapsed(offset)}" width="640" height="360">
           <span class="media-badge">11/06 原片參考</span>
         </div>
-        <figcaption class="subtle">原片位移 <span class="mono">+${elapsed(minute*60+15)}</span> · 依檔案分鐘配對，以下文字為合成示例。</figcaption>
+        <figcaption class="subtle">${segmentStill ? '區段起點影格' : '分鐘取樣影格'} · 原片位移 <span class="mono">+${elapsed(offset)}</span> · 以下文字為合成示例。</figcaption>
         ${clip ? `<button type="button" class="clip-button" data-action="clip">${icon('play')}播放原片節錄</button>` : ''}
       </figure>
       <dl class="evidence">
@@ -333,6 +337,7 @@ function choose(channel, minute, segment = null, fromAnalysis = false) {
   state.channel = channel;
   state.minute = minute;
   state.segment = segment;
+  state.frameMode = segment ? 'segment' : 'minute';
   state.view = 'monitor';
   if (segment || fromAnalysis) {
     state.filter = 'all';
@@ -391,6 +396,7 @@ function changeWallMinute(minute) {
   state.minute=minute;
   state.page=Math.floor(minute/PAGE_SIZE);
   state.segment=null;
+  state.frameMode='minute';
   renderWall();
 }
 $('wall-prev').addEventListener('click', () => changeWallMinute(state.minute-1));
@@ -457,6 +463,7 @@ $('inspector').addEventListener('click', (event) => {
     state.filter = 'all';
     state.page = Math.floor(SAMPLE.minute / PAGE_SIZE);
     state.segment = SAMPLE.segment;
+    state.frameMode = 'segment';
     announce('已回到自動原始版。');
     render();
     $('inspector-title').focus();
