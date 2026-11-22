@@ -194,12 +194,12 @@ function renderInspector() {
 
 function renderAnalysis() {
   const channels = DEMO.channels.filter(({ id }) => state.adChannel === 'all' || state.adChannel === id);
-  $('ad-summary').innerHTML = channels.map(({ id, name }) => {
+  $('break-summary').innerHTML = channels.map(({ id, name }) => {
     const stats = scopeStats(id);
-    return `<div class="ad-card"><h3>${name}</h3><strong>${percent(stats.adSeconds, stats.readable)}</strong>
+    return `<div class="break-card"><h3>${name}</h3><strong>${percent(stats.adSeconds, stats.readable)}</strong>
       <p>有效區間廣告占比 · ${stats.ads.length} 段</p><p>廣告 ${stats.adSeconds.toLocaleString('zh-TW')} / ${stats.readable.toLocaleString('zh-TW')} 秒</p><p>覆蓋率 ${percent(stats.readable, 3600)}</p></div>`;
   }).join('');
-  $('ad-body').innerHTML = channels.flatMap(({ id, name }) =>
+  $('break-rows').innerHTML = channels.flatMap(({ id, name }) =>
     scopeStats(id).ads.map((segment) => {
       const partial = segment.start === 0 || segment.end === 3600;
       return `<tr><th scope="row">${name}</th><td class="mono" data-label="起點">${stamp(segment.start)}</td>
@@ -376,7 +376,7 @@ document.querySelectorAll('[data-view]').forEach((button) => button.addEventList
   render();
 }));
 $('timeline').addEventListener('click', (event) => selectSegment(event.target));
-$('ad-body').addEventListener('click', (event) => selectSegment(event.target, true));
+$('break-rows').addEventListener('click', (event) => selectSegment(event.target, true));
 $('topic-airings').addEventListener('click', (event) => selectSegment(event.target, true));
 $('business-cards').addEventListener('click', (event) => {
   const link = event.target.closest('[data-wall-minute]');

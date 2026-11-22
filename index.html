@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light">
   <title>新聞監看工作台</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=break-list-2">
   <script src="sample-data.js" defer></script>
   <script src="topic-data.js" defer></script>
-  <script src="app.js" defer></script>
+  <script src="app.js?v=break-list-2" defer></script>
 </head>
 <body>
   <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -103,15 +103,15 @@
     </div>
 
     <div id="analysis-view" class="analysis-view" hidden>
-      <section class="panel" aria-labelledby="ads-title">
+      <section class="panel" aria-labelledby="break-list-title">
         <div class="panel-head">
-          <div><h2 id="ads-title">廣告破口清單</h2><p>以區段起訖統計 · 合成示意</p></div>
+          <div><h2 id="break-list-title">廣告破口清單</h2><p>以區段起訖統計 · 合成示意</p></div>
           <div class="table-controls"><label class="sr-only" for="channel-filter">台別</label><select id="channel-filter"><option value="all">全部台別</option></select></div>
         </div>
-        <div id="ad-summary" class="ad-summary"></div>
-        <div class="sheet-scroll"><table class="ad-table">
+        <div id="break-summary" class="break-summary"></div>
+        <div class="sheet-scroll"><table class="break-table">
           <thead><tr><th scope="col">台別</th><th scope="col">區段起點</th><th scope="col">區段終點</th><th scope="col">觀測時長</th><th scope="col">觀測狀態</th><th scope="col">來源</th></tr></thead>
-          <tbody id="ad-body"></tbody>
+          <tbody id="break-rows"></tbody>
         </table></div>
         <p class="analysis-note">廣告占比＝已確認的廣告秒數 ÷ 有效可判讀秒數。覆蓋率＝有效可判讀秒數 ÷ 監看視窗秒數。</p>
       </section>

@@ -154,14 +154,14 @@ thead th { background: var(--soft); color: var(--muted); font-size: .81rem; font
 .changes { background: var(--news-bg); color: var(--news-fg); border-radius: 8px; padding: 10px; font-size: .84rem; }
 
 .analysis-view .panel { overflow: hidden; }
-.ad-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 16px 16px; }
-.ad-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--soft); }
-.ad-card h3 { font-size: .93rem; }
-.ad-card strong { font-size: 1.22rem; font-family: var(--mono); }
-.ad-card p { font-size: .78rem; color: var(--muted); }
-.ad-table { min-width: 540px; table-layout: auto; }
-.ad-table td, .ad-table th { padding: 7px 10px; }
-.ad-table td { font-size: .88rem; }
+.break-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 0 16px 16px; }
+.break-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--soft); }
+.break-card h3 { font-size: .93rem; }
+.break-card strong { font-size: 1.22rem; font-family: var(--mono); }
+.break-card p { font-size: .78rem; color: var(--muted); }
+.break-table { min-width: 540px; table-layout: auto; }
+.break-table td, .break-table th { padding: 7px 10px; }
+.break-table td { font-size: .88rem; }
 .analysis-note { padding: 14px 16px; color: var(--muted); font-size: .82rem; }
 .topics-workspace { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin-top: 12px; align-items: start; }
 .topic-scroll { overflow-x: auto; }
@@ -204,14 +204,14 @@ footer { margin: 16px 2px 0; color: var(--muted); font-size: .81rem; }
   .top-inner nav { flex-wrap: wrap; }
   .nav-item { padding-inline: 9px; gap: 5px; font-size: .82rem; }
   .topic-table { min-width: 420px; }
-  .ad-table { min-width: 0; display: block; }
-  .ad-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .ad-table tbody { display: grid; }
-  .ad-table tr { display: grid; padding: 10px 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
-  .ad-table tbody th { grid-column: 1/-1; }
-  .ad-table td, .ad-table th { border: 0; padding: 5px 0; }
-  .ad-table td::before { content: attr(data-label); display: block; font: .75rem "Microsoft JhengHei", sans-serif; color: var(--muted); }
-  .ad-table td:last-child { grid-column: 1/-1; }
+  .break-table { min-width: 0; display: block; }
+  .break-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .break-table tbody { display: grid; }
+  .break-table tr { display: grid; padding: 10px 16px; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+  .break-table tbody th { grid-column: 1/-1; }
+  .break-table td, .break-table th { border: 0; padding: 5px 0; }
+  .break-table td::before { content: attr(data-label); display: block; font: .75rem "Microsoft JhengHei", sans-serif; color: var(--muted); }
+  .break-table td:last-child { grid-column: 1/-1; }
 }
 
 dialog { width: min(calc(100% - 24px), 560px); padding: 0; border: 1px solid var(--line); border-radius: var(--radius); color: var(--ink); box-shadow: 0 22px 76px #10223848; }
@@ -233,7 +233,7 @@ dialog .panel-head { border-bottom: 1px solid var(--line); }
   .top-inner { padding: 10px 24px; grid-template-columns: auto 1fr auto; gap: 24px; }
   .top-inner nav { grid-column: auto; grid-row: auto; }
   .hero { padding: 24px 28px; }
-  .metrics, .ad-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .metrics, .break-summary { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ticks span:nth-child(even), .col-code { display: inline; }
   .sheet th:first-child { padding-left: 16px; width: 76px; }
   .cell { padding: 5px 8px; font-size: .86rem; }
