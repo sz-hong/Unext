@@ -4,11 +4,11 @@ const $ = (id) => document.getElementById(id);
 const SAMPLE = { channel: 'ftv', minute: 38, segment: 'ftv-2302' };
 const PAGE_SIZE = 6;
 const state = {
-  view: 'monitor', version: 'original', channel: SAMPLE.channel, minute: SAMPLE.minute,
-  segment: SAMPLE.segment, frameMode: 'segment', filter: 'all', page: 6, review: null, adChannel: 'all', topic: null,
+  view: 'monitor', version: 'official', channel: 'tvbs', minute: 0,
+  segment: null, frameMode: 'segment', filter: 'all', page: 0, review: null, adChannel: 'all', topic: null,
 };
 const statusLabels = {
-  news: '新聞', ad: '廣告', pending: '待確認', gap: '缺訊', continuation: '延續',
+  news: '新聞', ad: '廣告', pending: '待確認', gap: '缺訊', continuation: '延續', unknown:'前段未載',
 };
 const icon = (name) => `<svg aria-hidden="true"><use href="#${name}"/></svg>`;
 const elapsed = (seconds) => `${String(Math.floor(seconds / 60)).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
@@ -40,6 +40,23 @@ function commercialExample(channel,segment) {
   return {offset:minute*60+15,image:minuteFrame(channel,minute),label:recordingAds[channel][minute]};
 }
 
+const official = () => state.version === 'official';
+function representative(channel,segment) {
+  if (segment.type==='unknown') return null;
+  if (segment.type==='ad') return commercialExample(channel,segment);
+  const m=Math.floor(segment.start/60);
+  return official() ? {image:minuteFrame(channel,m),offset:m*60+15} : {image:segmentFrame(channel,segment.start),offset:segment.start};
+}
+function minuteSelection(channel,minute,preferred) {
+  const ids=source().rows[minute][channel].segments;
+  const events=source().tracks[channel].filter(s=>ids.includes(s.id));
+  return events.find(s=>s.id===preferred) || events.find(s=>isUncertain({status:s.type})) || events.at(-1);
+}
+const officialRange=s=>minuteTime(s.start/60)+'–'+minuteTime(s.end/60-1);
+function displayTitle(segment,minute) {
+  return official() && minute>segment.start/60 ? segment.label.split('/').at(-1) : segment.label;
+}
+
 // Synthetic minute series. Preserve the published comparison cases and their baselines.
 const demoRatings = Object.fromEntries(DEMO.channels.map(({id}, i) => [id,
   Array.from({length:60}, (_, m) => Number((0.54 + i * 0.02 + 0.06 * Math.sin(m / 6 + i) + 0.025 * Math.cos(m / 3)).toFixed(2)))
@@ -66,14 +83,14 @@ function renderWall() {
   $('wall-prev').disabled = m === 0;
   $('wall-next').disabled = m === 59;
   $('wall-grid').innerHTML = DEMO.channels.map(({id,name}) => {
-    const cell = source().rows[m][id];
-    const events = source().tracks[id].filter(s => cell.segments.includes(s.id));
+    const segment=minuteSelection(id,m);
+    const frame=representative(id,segment);
     const current = demoRatings[id][m];
     const before = demoRatings[id][m-1];
-    return `<article class="wall-card"><header><h3>${name}</h3><span>${recordingAds[id][m] || '原片取樣'}</span></header>
-      <img width="640" height="360" src="${minuteFrame(id,m)}" alt="${name}側錄位移 ${elapsed(m*60+15)} 的畫面">
-      <div class="wall-detail"><strong>示範填表 · ${events.map(s => s.label || statusLabels[s.type]).join('／')}</strong>
-      <p>示範收視 <b>${current == null ? '未取得' : ratingText(current)}</b> · 較前分鐘 ${current == null || before == null ? '—' : deltaText(current-before)+' 個百分點'}</p>
+    return `<article class="wall-card"><header><h3>${name}</h3><span>${frame?'11/06 影像示意':'前段未載'}</span></header>
+      ${frame?`<img width="640" height="360" src="${frame.image}" alt="${name}區段示意影格">`:''}
+      <div class="wall-detail"><strong>${displayTitle(segment,m)}</strong>
+      ${official()?`<p>10/26 登錄區間 · ${officialRange(segment)}</p>`:`<p>示範收視 <b>${current == null ? '未取得' : ratingText(current)}</b> · 較前分鐘 ${current == null || before == null ? '—' : deltaText(current-before)+' 個百分點'}</p>`}
       <button class="business-link" data-channel="${id}" data-minute="${m}">回查 ${cellCode(m,id)} 分鐘格</button></div></article>`;
   }).join('');
 }
@@ -81,7 +98,7 @@ function renderWall() {
 function scopeStats(id) {
   const track = source().tracks[id];
   const ads = track.filter((entry) => entry.type === 'ad');
-  const uncertain = track.filter((entry) => entry.type === 'pending' || entry.type === 'gap');
+  const uncertain = track.filter((entry) => ['pending','gap','unknown'].includes(entry.type));
   return {
     ads,
     adSeconds: ads.reduce((sum, entry) => sum + length(entry), 0),
@@ -99,7 +116,12 @@ function renderMetrics() {
     readable: sum.readable + item.readable,
     breaks: sum.breaks + item.ads.length,
   }), { pending: 0, gap: 0, readable: 0, breaks: 0 });
-  const metrics = [
+  const metrics = official() ? [
+    ['監看範圍','4 台','10/26 · 12:00–12:59'],
+    ['分鐘格','240','每台 60 格'],
+    ['有登錄的分鐘格',source().rows.flatMap(Object.values).filter(c=>c.value).length,'依四台標題欄統計'],
+    ['廣告起點',totals.breaks+' 段','依原表「廣告」登錄'],
+  ] : [
     ['監看範圍', '04 / 04', '12:00–13:00'],
     ['待確認與缺訊', `${totals.pending + totals.gap} <small>格</small>`, `待確認 ${totals.pending} 格 · 缺訊 ${totals.gap} 格`],
     ['已辨識廣告區段', `${totals.breaks} <small>段</small>`, '四台合計'],
@@ -111,16 +133,18 @@ function renderMetrics() {
 
 function renderTimeline() {
   const axis = ['12:00', '12:15', '12:30', '12:45', '13:00'];
-  const recording=$('timeline-mode').value==='recording';
+  const recording=!official() && $('timeline-mode').value==='recording';
   $('timeline-note').textContent=recording ? '選取時間或「廣告」，在證據回查看該台原片。各檔自 12:00 起算，廣告取樣點已人工核對。' : '點選區段回查看原片。標題與區段為填表示範；廣告顯示同台實例及原片位移。';
   $('timeline-mode').closest('.panel-head').querySelector('.legend').hidden=recording;
+  $('timeline-mode').parentElement.hidden=official();
+  if(official()) $('timeline-note').textContent='10/26 官方 Excel：每個色塊代表一次登錄。空白分鐘延續上一則，直到該台換題。';
   const lanes = DEMO.channels.map(({ id, name }) =>
     `<div class="timeline-row"><span class="lane-label">${name}</span><div class="track" role="group" aria-label="${name}播出區段">
       ${recording ? recordingLane(id,name) : source().tracks[id].map((segment) => {
         const selected = state.channel === id && state.segment === segment.id;
         const label = segment.type === 'news' ? segment.label : statusLabels[segment.type];
         const example=segment.type==='ad' ? commercialExample(id,segment) : null;
-        const summary = `${name} ${stamp(segment.start)} 至 ${stamp(segment.end)}，示範標記：${label}，原片位移 +${elapsed(example?.offset ?? segment.start)}`;
+        const summary = official() ? `${name} ${officialRange(segment)} · ${segment.label}` : `${name} ${stamp(segment.start)} 至 ${stamp(segment.end)}，示範標記：${label}，原片位移 +${elapsed(example?.offset ?? segment.start)}`;
         return `<button class="segment ${segment.type === 'ad' ? 'commercial' : segment.type}"
           style="--duration:${length(segment)}" data-channel="${id}" data-segment="${segment.id}"
           aria-label="${summary}" title="${summary}" aria-pressed="${selected}"><span>${length(segment) >= 180 || example ? label : ''}</span></button>`;
@@ -177,11 +201,16 @@ function renderInspector() {
   const { channel, minute } = state;
   const name = channelInfo(channel).name;
   const cell = source().rows[minute][channel];
-  const lane = source().tracks[channel];
-  const selected = lane.find((entry) => entry.id === state.segment && cell.segments.includes(entry.id))
-    ?? lane.find((entry) => cell.segments.includes(entry.id) && isUncertain({ status: entry.type }))
-    ?? lane.find((entry) => cell.segments.includes(entry.id));
+  const selected=minuteSelection(channel,minute,state.segment);
   state.segment = selected.id;
+  if(official()){
+    const frame=representative(channel,selected);
+    $('inspector').innerHTML=`<div class="panel-head"><div><h2 id="inspector-title" tabindex="-1">區段回查</h2><p class="mono">${name} · ${minuteTime(minute)} · ${cellCode(minute,channel)}</p></div></div>
+      <div class="inspector-body"><div class="inspect-context"><strong>${displayTitle(selected,minute)}</strong><span>10/26 · ${officialRange(selected)}</span></div>
+      ${frame?`<figure class="sample-source"><div class="media"><img src="${frame.image}" width="640" height="360" alt="${name} 11/06 區段示意影格"><span class="media-badge">11/06 影像示意</span></div><figcaption>原片位移 +${elapsed(frame.offset)} · 同一登錄區段共用此圖。</figcaption></figure>`:'<p>首格空白，前一則標題未載於範例。</p>'}
+      <dl class="evidence"><div><dt>10/26 原表格值</dt><dd>${cell.value || (frame?'空白，沿用前一則':'空白')}</dd></div>${selected.label.includes('/')?'<div><dt>同分鐘多則</dt><dd>依原表保留登錄順序；下一分鐘留白時沿用末則。</dd></div>':''}</dl></div>`;
+    return;
+  }
   const segmentStill = state.frameMode === 'segment';
   const example=segmentStill && selected.type==='ad' ? commercialExample(channel,selected) : null;
   const offset = example?.offset ?? (segmentStill ? selected.start : minute*60+15);
@@ -226,18 +255,20 @@ function renderInspector() {
 }
 
 function renderAnalysis() {
+  const history=official();
+  document.querySelector('#analysis-view .analysis-note').textContent=history?'廣告占比＝標記為廣告的分鐘格數 ÷ 可歸屬的分鐘格數。首筆登錄前的空白不計入分母。':'廣告占比＝已確認的廣告秒數 ÷ 有效可判讀秒數。覆蓋率＝有效可判讀秒數 ÷ 監看視窗秒數。';
   const channels = DEMO.channels.filter(({ id }) => state.adChannel === 'all' || state.adChannel === id);
   $('break-summary').innerHTML = channels.map(({ id, name }) => {
     const stats = scopeStats(id);
     return `<div class="break-card"><h3>${name}</h3><strong>${percent(stats.adSeconds, stats.readable)}</strong>
-      <p>有效區間廣告占比 · ${stats.ads.length} 段</p><p>廣告 ${stats.adSeconds.toLocaleString('zh-TW')} / ${stats.readable.toLocaleString('zh-TW')} 秒</p><p>覆蓋率 ${percent(stats.readable, 3600)}</p></div>`;
+      <p>有效區間廣告占比 · ${stats.ads.length} 段</p><p>廣告 ${history?(stats.adSeconds/60)+' / '+(stats.readable/60)+' 分鐘':stats.adSeconds.toLocaleString('zh-TW')+' / '+stats.readable.toLocaleString('zh-TW')+' 秒'}</p><p>覆蓋率 ${percent(stats.readable, 3600)}</p></div>`;
   }).join('');
   $('break-rows').innerHTML = channels.flatMap(({ id, name }) =>
     scopeStats(id).ads.map((segment) => {
       const partial = segment.start === 0 || segment.end === 3600;
       return `<tr><th scope="row">${name}</th><td class="mono" data-label="起點">${stamp(segment.start)}</td>
         <td class="mono" data-label="終點">${stamp(segment.end)}</td><td class="mono" data-label="時長">${elapsed(length(segment))}</td>
-        <td data-label="觀測狀態"><span class="pill ${partial ? 'gap' : 'news'}">${partial ? '部分觀測' : '完整觀測'}</span></td>
+        <td data-label="觀測狀態"><span class="pill ${partial ? 'gap' : 'news'}">${history?'原表分鐘':partial ? '部分觀測' : '完整觀測'}</span></td>
         <td><button class="button neutral" data-channel="${id}" data-segment="${segment.id}">查看</button></td></tr>`;
     })).join('') || '<tr><td class="empty" colspan="6">目前沒有可列入的廣告區段。</td></tr>';
 }
@@ -325,6 +356,11 @@ $('analysis-page').addEventListener('change', renderTopics);
 function render() {
   const isMonitor = state.view === 'monitor';
   const isTopics = state.view === 'topics';
+  const history=official() && !isTopics;
+  document.querySelector('.eyebrow').innerHTML=history?'<span></span>10/26 官方 Excel · 四台午間監看':'<span></span>四台一小時 · 合成監看批次';
+  document.querySelector('#wall-title + p').textContent=history?'10/26 官方標題與換題分鐘。11/06 影像僅作區段示意，空白分鐘沿用上一張。':'各台依播出區段共用代表影格；收視與區段標記為示範資料。';
+  document.querySelector('#break-list-title + p').textContent=history?'10/26 官方 Excel · 以登錄分鐘估算，終點為下一筆登錄的分鐘。':'以區段起訖統計 · 合成示意';
+  document.querySelector('footer').textContent=history?'標題與分鐘取自 10/26 官方監看表 · 影像取自 11/06 側錄，僅供示意':'合成資料僅供操作展示 · 11/06 影像另標原片參考';
   $('monitor-view').hidden = !isMonitor;
   $('wall-view').hidden = state.view !== 'wall';
   $('analysis-view').hidden = state.view !== 'analysis';
@@ -334,7 +370,7 @@ function render() {
   $('page-title').textContent = { monitor: '監看與覆核', wall:'四台畫面', analysis: '廣告分析', topics: '議題分析' }[state.view];
   $('page-description').textContent = {
     monitor: '核對時間、回看證據，從同一條時間軸預覽 Excel。',
-    wall: '切換分鐘，比對四台側錄影格、播出區段與示範收視。',
+    wall: history?'逐分鐘比較各台議題；換題時更新該台的代表影格。':'切換分鐘，比對四台區段與示範收視。',
     analysis: '依播出區段比較競台廣告破口與資料覆蓋率。',
     topics: '以同一議題比對各台播出、對應收視與平台瀏覽數。',
   }[state.view];
@@ -362,11 +398,11 @@ function render() {
   }
 }
 
-function choose(channel, minute, segment = null, fromAnalysis = false) {
+function choose(channel, minute, segment = null, fromAnalysis = false, frameMode='segment') {
   state.channel = channel;
   state.minute = minute;
   state.segment = segment;
-  state.frameMode = segment ? 'segment' : 'minute';
+  state.frameMode = frameMode;
   state.view = 'monitor';
   if (segment || fromAnalysis) {
     state.filter = 'all';
@@ -386,6 +422,7 @@ function selectSegment(target, fromAnalysis = false) {
   const button = target.closest('[data-segment]');
   if (!button) return;
   const { channel, segment } = button.dataset;
+  if(state.view==='topics') state.version='original';
   const entry = source().tracks[channel].find((item) => item.id === segment);
   choose(channel, Math.floor(entry.start / 60), segment, fromAnalysis);
 }
@@ -412,7 +449,7 @@ document.querySelectorAll('[data-view]').forEach((button) => button.addEventList
 $('timeline-mode').addEventListener('change',renderTimeline);
 $('timeline').addEventListener('click', event => {
   const frame=event.target.closest('[data-recording-minute]');
-  if(frame) choose(frame.dataset.channel,Number(frame.dataset.recordingMinute),null,true);
+  if(frame) choose(frame.dataset.channel,Number(frame.dataset.recordingMinute),null,true,'minute');
   else selectSegment(event.target);
 });
 $('break-rows').addEventListener('click', (event) => selectSegment(event.target, true));
@@ -420,6 +457,7 @@ $('topic-airings').addEventListener('click', (event) => selectSegment(event.targ
 $('business-cards').addEventListener('click', (event) => {
   const link = event.target.closest('[data-wall-minute]');
   if (!link) return selectSegment(event.target, true);
+  state.version='original';
   state.filter='all';
   changeWallMinute(Number(link.dataset.wallMinute));
   state.view='wall';
@@ -478,7 +516,12 @@ $('channel-filter').addEventListener('change', (event) => {
 });
 $('version').addEventListener('change', (event) => {
   state.version = event.target.value;
-  if (state.version === 'original' && state.filter === 'changed') state.filter = 'all';
+  state.filter='all';
+  state.channel=official()?'tvbs':SAMPLE.channel;
+  state.minute=official()?0:SAMPLE.minute;
+  state.segment=official()?null:SAMPLE.segment;
+  state.frameMode='segment';
+  state.page=Math.floor(state.minute/PAGE_SIZE);
   render();
 });
 $('inspector').addEventListener('click', (event) => {

@@ -7,8 +7,9 @@
   <title>新聞監看工作台</title>
   <link rel="stylesheet" href="styles.css?v=compact-timeline">
   <script src="sample-data.js" defer></script>
+  <script src="official-data.js" defer></script>
   <script src="topic-data.js" defer></script>
-  <script src="app.js?v=compact-timeline" defer></script>
+  <script src="app.js?v=official-segments" defer></script>
 </head>
 <body>
   <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -49,6 +50,7 @@
         <div class="version-control">
           <label for="version">資料版本</label>
           <select id="version">
+            <option value="official">10/26 官方 Excel 範例</option>
             <option value="original">自動原始版（示範）</option>
             <option value="reviewed" disabled>覆核修訂版（示範）</option>
           </select>
@@ -70,7 +72,7 @@
         <section class="panel" aria-labelledby="timeline-title">
           <div class="panel-head">
             <div><h2 id="timeline-title">四台監看時間軸</h2><p id="timeline-note">以 12:00 表示各檔起點。廣告標記為人工核對的原片取樣點。</p></div>
-            <label>檢視 <select id="timeline-mode"><option value="recording">原片取樣</option><option value="demo">示範填表區段</option></select></label>
+            <label>檢視 <select id="timeline-mode"><option value="demo">Excel 播出區段</option><option value="recording">11/06 原片取樣</option></select></label>
             <div class="legend" aria-label="時間軸圖例">
               <span><i class="news"></i>新聞</span><span><i class="ad"></i>廣告</span>
               <span><i class="pending"></i>未決</span><span><i class="gap"></i>缺訊</span>
