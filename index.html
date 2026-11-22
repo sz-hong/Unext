@@ -9,8 +9,9 @@
   <script src="sample-data.js" defer></script>
   <script src="official-data.js" defer></script>
   <script src="recording-data.js" defer></script>
+  <script src="nov-ratings.js" defer></script>
   <script src="topic-data.js" defer></script>
-  <script src="app.js?v=nov-recordings" defer></script>
+  <script src="app.js?v=nov-ratings" defer></script>
 </head>
 <body>
   <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -139,8 +140,11 @@
       <div id="business-cards" class="business-cards"></div>
     </section>
     <section id="recording-topics" class="panel" hidden>
-      <div class="panel-head"><div><h2>11/06 四台議題播出紀錄</h2><p>依五字標整理本次側錄；同台續報或重播分次列出。點選分鐘可回查畫面。</p></div></div>
-      <div class="topic-scroll"><table class="topic-table"><thead><tr><th>議題</th><th>TVBS</th><th>東森</th><th>民視</th><th>華視</th></tr></thead><tbody id="recording-topic-rows"></tbody></table></div>
+      <div class="panel-head"><div><h2>11/06 議題與收視</h2><p>播出區段取自四台側錄。收視率為固定模擬資料，供排播分析示範。</p></div></div>
+      <div class="table-controls nov-controls"><label>分析項目 <select id="nov-report"><option value="topics">議題首播與平均收視</option><option value="minutes">分鐘收視與競台內容</option><option value="breaks">廣告前後收視</option></select></label>
+      <label>議題 <select id="nov-topic"><option value="">全部議題</option></select></label></div>
+      <p id="nov-explanation" class="analysis-note"></p><div id="nov-peaks"></div>
+      <div class="topic-scroll"><table class="topic-table"><thead id="nov-columns"></thead><tbody id="recording-topic-rows"></tbody></table></div>
     </section>
     <div id="topics-view" class="topics-workspace" hidden>
       <section class="panel" aria-labelledby="topic-timeline-title">

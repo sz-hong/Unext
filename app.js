@@ -89,12 +89,13 @@ function renderWall() {
   $('wall-grid').innerHTML = DEMO.channels.map(({id,name}) => {
     const segment=minuteSelection(id,m);
     const frame=representative(id,segment);
-    const current = demoRatings[id][m];
-    const before = demoRatings[id][m-1];
+    const series = captured() ? NOV_RATINGS.ratings[id] : demoRatings[id];
+    const current = series[m];
+    const before = series[m-1];
     return `<article class="wall-card"><header><h3>${name}</h3><span>${captured()?'11/06 側錄':frame?'11/06 影像示意':'前段未載'}</span></header>
       ${frame?`<img width="640" height="360" src="${frame.image}" alt="${name}區段示意影格">`:''}
       <div class="wall-detail"><strong>${displayTitle(segment,m)}</strong>
-      ${captured()?`<p>${capturedRange(segment)} · 原片 +${elapsed(segment.offset)}</p>`:official()?`<p>10/26 登錄區間 · ${officialRange(segment)}</p>`:`<p>示範收視 <b>${current == null ? '未取得' : ratingText(current)}</b> · 較前分鐘 ${current == null || before == null ? '—' : deltaText(current-before)+' 個百分點'}</p>`}
+      ${captured()?`<p>${capturedRange(segment)} · 原片 +${elapsed(segment.offset)}</p><p>模擬分鐘收視 <b>${ratingText(current)}</b></p>`:official()?`<p>10/26 登錄區間 · ${officialRange(segment)}</p>`:`<p>示範收視 <b>${current == null ? '未取得' : ratingText(current)}</b> · 較前分鐘 ${current == null || before == null ? '—' : deltaText(current-before)+' 個百分點'}</p>`}
       <button class="business-link" data-channel="${id}" data-minute="${m}">回查 ${cellCode(m,id)} 分鐘格</button></div></article>`;
   }).join('');
 }
@@ -369,6 +370,58 @@ function renderTopics() {
 
 $('analysis-page').addEventListener('change', renderTopics);
 
+function renderRecordingRatings() {
+  const {topics,ratings,breaks}=NOV_RATINGS;
+  const names=DEMO.channels;
+  const filter=$('nov-topic').value;
+  const report=$('nov-report').value;
+  const link=(ch,id,text,minute=null)=>`<button class="business-link" data-channel="${ch}" data-segment="${id}" ${minute==null?'':`data-minute="${minute}"`}>${text}</button>`;
+  const row=(first,cells)=>`<tr><th scope="row">${first}</th>${cells.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+  const rate=v=>v==null?'—':ratingText(v);
+  let columns, note, rows;
+  $('nov-peaks').innerHTML='';
+  if(report==='topics'){
+    columns=['議題','最早播出','平均收視最高',...names.map(s=>s.name)];
+    note='點選分鐘可回查原片。同台重播分次列出，平均收視按各播出區段實際涵蓋的秒數加權；同分鐘首播並列。';
+    rows=Object.entries(topics).filter(([label])=>!filter||label===filter).map(([label,stations])=>{
+      const aired=names.filter(s=>stations[s.id]);
+      const earliest=Math.min(...aired.map(s=>stations[s.id].airings[0].m));
+      const highest=Math.max(...aired.map(s=>stations[s.id].avg));
+      const first=aired.filter(s=>stations[s.id].airings[0].m===earliest).map(s=>s.name).join('／');
+      const leaders=aired.filter(s=>stations[s.id].avg===highest).map(s=>s.name).join('／');
+      return row(label,[first,aired.length>1?leaders+' '+rate(highest):'單台播出',...names.map(({id})=>{
+        const a=stations[id];return a?rate(a.avg)+'<br>'+a.airings.map(s=>link(id,s.id,minuteTime(s.m))).join(' '):'—';
+      })]);
+    });
+  }else if(report==='minutes'){
+    columns=['播出分鐘',...names.map(s=>s.name)];
+    note='每格顯示該台的模擬分鐘收視及當時播出內容。選擇議題後，保留任一台播出該議題的分鐘，供同期比較。';
+    const batch=source();
+    const events=(id,m)=>batch.tracks[id].filter(s=>batch.rows[m][id].segments.includes(s.id));
+    const minutes=Array.from({length:60},(_,m)=>m).filter(m=>!filter||names.some(({id})=>events(id,m).some(s=>s.label===filter)));
+    $('nov-peaks').innerHTML='<div class="break-summary">'+names.map(({id,name})=>{
+      const peak=minutes.reduce((best,m)=>ratings[id][m]>ratings[id][best]?m:best,minutes[0]);
+      return `<div class="break-card"><h3>${name}</h3><strong>${rate(ratings[id][peak])}</strong><p>所選分鐘高點 · ${minuteTime(peak)}</p></div>`;
+    }).join('')+'</div>';
+    rows=minutes.map(m=>row(minuteTime(m),names.map(({id})=>{
+      const delta=m?deltaText(ratings[id][m]-ratings[id][m-1])+' 個百分點':'—';
+      return rate(ratings[id][m])+` <small>${delta}</small><br>`+events(id,m).map(s=>link(id,s.id,s.label,m)).join('／');
+    })));
+  }else{
+    columns=['頻道','破口前議題','廣告分鐘（含首尾）','前一分鐘','廣告平均','後一分鐘','前後差（百分點）'];
+    note='比較進廣告前一分鐘與離開廣告後一分鐘。廣告平均按破口在各分鐘所占秒數加權，篩選依破口前的議題。';
+    rows=breaks.filter(b=>!filter||b.previous===filter).sort((a,b)=>a.start-b.start).map(b=>row(channelInfo(b.ch).name,[
+      b.previous,link(b.ch,b.id,minuteTime(b.start)+'–'+minuteTime(b.last)),rate(b.before),rate(b.during),rate(b.after),
+      b.before==null||b.after==null?'—':deltaText(b.after-b.before)
+    ]));
+  }
+  $('nov-columns').innerHTML='<tr>'+columns.map(s=>`<th scope="col">${s}</th>`).join('')+'</tr>';
+  $('nov-explanation').textContent=note;
+  $('recording-topic-rows').innerHTML=rows.join('')||`<tr><td colspan="${columns.length}">所選議題後未觀測到廣告破口。</td></tr>`;
+}
+$('nov-topic').append(...Object.keys(NOV_RATINGS.topics).map(label=>new Option(label,label)));
+for(const id of ['nov-report','nov-topic']) $(id).addEventListener('change',renderRecordingRatings);
+
 function render() {
   const isMonitor = state.view === 'monitor';
   const isTopics = state.view === 'topics';
@@ -408,8 +461,8 @@ function render() {
   $('version').querySelector('[value=reviewed]').disabled = !state.review;
   $('version').value = state.version;
   $('version').closest('.version-control').hidden = false;
-  $('download').href = isTopics && !captured() ? 'assets/示範_議題分析.xlsx' : source().excel;
-  $('download').innerHTML = `${icon('arrow-down')}${isTopics && !captured() ? '下載議題分析 Excel' : '下載 Excel'}`;
+  $('download').href = captured() ? 'assets/1106監看與模擬收視.xlsx' : isTopics ? 'assets/示範_議題分析.xlsx' : source().excel;
+  $('download').innerHTML = `${icon('arrow-down')}${captured() ? '下載監看與模擬收視 Excel' : isTopics ? '下載議題分析 Excel' : '下載 Excel'}`;
   $('filter').value = state.filter;
   renderMetrics();
   if (isMonitor) {
@@ -419,12 +472,7 @@ function render() {
   } else if (state.view === 'wall') {
     renderWall();
   } else if (isTopics && captured()) {
-    const tracks=Object.entries(source().tracks);
-    const labels=[...new Set(tracks.flatMap(([,entries])=>entries).filter(s=>s.type==='news').sort((a,b)=>a.start-b.start).map(s=>s.label))];
-    $('recording-topic-rows').innerHTML=labels.map(label=>`<tr><th scope="row">${label}</th>${DEMO.channels.map(({id})=>{
-      const entries=source().tracks[id].filter(s=>s.label===label);
-      return `<td>${entries.map(s=>`<button class="business-link" data-channel="${id}" data-segment="${s.id}">${minuteTime(Math.floor(s.start/60))}</button>`).join(' ') || '—'}</td>`;
-    }).join('')}</tr>`).join('');
+    renderRecordingRatings();
   } else if (isTopics) {
     renderTopics();
   } else {
@@ -458,7 +506,7 @@ function selectSegment(target, fromAnalysis = false) {
   const { channel, segment } = button.dataset;
   if(state.view==='topics' && !segment.startsWith('nov-')) state.version='original';
   const entry = source().tracks[channel].find((item) => item.id === segment);
-  choose(channel, Math.floor(entry.start / 60), segment, fromAnalysis);
+  choose(channel, button.hasAttribute('data-minute') ? Number(button.dataset.minute) : Math.floor(entry.start / 60), segment, fromAnalysis);
 }
 
 function announce(message) {

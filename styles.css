@@ -274,5 +274,8 @@ dialog .panel-head { border-bottom: 1px solid var(--line); }
 .wall-card img { display:block; width:100%; height:auto; aspect-ratio:16/9; }
 .wall-detail { padding:10px 14px; }
 .wall-detail p { color:var(--muted); margin:4px 0; font-size:.89rem; }
+.nov-controls { padding:0 16px; display:flex; flex-wrap:wrap; gap:12px; }
+.nov-controls select { max-width:100%; }
+#recording-topics small { color:var(--muted); white-space:nowrap; }
 @media(min-width:1200px) { .wall-grid { grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; } }
 @media(max-width:599px) { .wall-grid { grid-template-columns:1fr; padding:12px; } .wall-controls { gap:7px; padding-inline:10px; } }
