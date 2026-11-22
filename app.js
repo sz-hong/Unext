@@ -25,6 +25,45 @@ const cellCode = (minute, id) => `${channelInfo(id).column}${minute + 5}`;
 const cellChanged = (minute, id) =>
   DEMO.versions.original.rows[minute][id].value !== DEMO.versions.reviewed.rows[minute][id].value;
 const isUncertain = (cell) => cell.status === 'pending' || cell.status === 'gap';
+const minuteFrame = (channel, minute) => `assets/frames/${channel}/${String(minute).padStart(2,'0')}.jpg`;
+
+// Synthetic minute series. Preserve the published comparison cases and their baselines.
+const demoRatings = Object.fromEntries(DEMO.channels.map(({id}, i) => [id,
+  Array.from({length:60}, (_, m) => Number((0.54 + i * 0.02 + 0.06 * Math.sin(m / 6 + i) + 0.025 * Math.cos(m / 3)).toFixed(2)))
+]));
+for (const story of Object.values(TOPIC_DEMO.cases)) {
+  story.ratings.forEach((v,i) => { demoRatings[story.channel][story.startMinute+i] = v; });
+  for (const [name,,before,current] of story.competitors) {
+    const channel = DEMO.channels.find(c => c.name === name).id;
+    const m = story.startMinute + story.breakIndex;
+    demoRatings[channel][m-1] = before;
+    demoRatings[channel][m] = current;
+  }
+}
+for (const airing of TOPIC_DEMO.airings) {
+  const entry = DEMO.versions.original.tracks[airing.channel].find(s => s.id === airing.segment);
+  demoRatings[airing.channel][Math.floor(entry.start / 60)] = airing.rating == null ? null : airing.rating * 100;
+}
+
+function renderWall() {
+  const m = state.minute;
+  $('wall-minute').value = m;
+  $('wall-time').textContent = minuteTime(m);
+  $('wall-minute').setAttribute('aria-valuetext', minuteTime(m));
+  $('wall-prev').disabled = m === 0;
+  $('wall-next').disabled = m === 59;
+  $('wall-grid').innerHTML = DEMO.channels.map(({id,name}) => {
+    const cell = source().rows[m][id];
+    const events = source().tracks[id].filter(s => cell.segments.includes(s.id));
+    const current = demoRatings[id][m];
+    const before = demoRatings[id][m-1];
+    return `<article class="wall-card"><header><h3>${name}</h3><span class="pill ${cell.status}">${statusLabels[cell.status]}</span></header>
+      <img width="640" height="360" src="${minuteFrame(id,m)}" alt="${name}側錄位移 ${elapsed(m*60+15)} 的畫面">
+      <div class="wall-detail"><strong>${events.map(s => s.label || statusLabels[s.type]).join('／')}</strong>
+      <p>示範收視 <b>${current == null ? '未取得' : ratingText(current)}</b> · 較前分鐘 ${current == null || before == null ? '—' : deltaText(current-before)+' 個百分點'}</p>
+      <button class="business-link" data-channel="${id}" data-minute="${m}">回查 ${cellCode(m,id)} 分鐘格</button></div></article>`;
+  }).join('');
+}
 
 function scopeStats(id) {
   const track = source().tracks[id];
@@ -118,9 +157,7 @@ function renderInspector() {
   state.segment = selected.id;
   const demoCase = channel === SAMPLE.channel && minute === SAMPLE.minute;
   const isDiff = state.version === 'reviewed' && cellChanged(minute, channel);
-  const imageKind = demoCase || selected.type === 'ad' ? 'ad' : 'news';
-  const reference = DEMO.gallery[channel][imageKind];
-  const clip = channel === 'ftv' && imageKind === 'ad';
+  const clip = demoCase;
   const headline = demoCase ? '捷運尖峰擬增開班次' : (selected.type === 'news' ? selected.label : '—');
   const transcript = demoCase
     ? '12:38:22 促銷口播開始，新聞敘事暫停。12:38:45 恢復播報。'
@@ -138,10 +175,10 @@ function renderInspector() {
       </div>
       <figure class="sample-source">
         <div class="media" id="media">
-          <img src="${reference.image}" alt="${name} 11/06 ${imageKind === 'ad' ? '廣告' : '新聞'}原片參考畫面" width="800" height="450">
+          <img src="${minuteFrame(channel, minute)}" alt="${name} 11/06 側錄檔案位移 ${elapsed(minute*60+15)}" width="640" height="360">
           <span class="media-badge">11/06 原片參考</span>
         </div>
-        <figcaption class="subtle">檔案位移 <span class="mono">+${elapsed(reference.offset)}</span> · ${imageKind === 'ad' ? '廣告畫面' : '新聞畫面'}</figcaption>
+        <figcaption class="subtle">原片位移 <span class="mono">+${elapsed(minute*60+15)}</span> · 依檔案分鐘配對，以下文字為合成示例。</figcaption>
         ${clip ? `<button type="button" class="clip-button" data-action="clip">${icon('play')}播放原片節錄</button>` : ''}
       </figure>
       <dl class="evidence">
@@ -205,6 +242,7 @@ function topicDetail(topic, page) {
   if (page === 'competition') return `<p class="subtle">${minutes[breakIndex]} · 台別收視淨變動（百分點）</p>
       <ul class="competition-stats">${story.competitors.map(([name, title, before, current]) =>
         `<li><b>${name}</b><span>${title}</span><strong class="mono">${deltaText(current - before)}</strong></li>`).join('')}</ul>
+      <button class="business-link" data-wall-minute="${startMinute+breakIndex}">查看 ${minutes[breakIndex]} 四台畫面</button>
       <p class="subtle">換台方向需另接授權資料。</p>`;
   if (page === 'platforms') return `<p class="subtle">${topic.name} · 發布後 24 小時瀏覽</p>
       <dl class="platform-stats">${TOPIC_DEMO.platforms.map((name, i) =>
@@ -255,13 +293,15 @@ function render() {
   const isMonitor = state.view === 'monitor';
   const isTopics = state.view === 'topics';
   $('monitor-view').hidden = !isMonitor;
+  $('wall-view').hidden = state.view !== 'wall';
   $('analysis-view').hidden = state.view !== 'analysis';
   $('topics-view').hidden = !isTopics;
   $('business-view').hidden = !isTopics;
-  $('metrics').hidden = isTopics;
-  $('page-title').textContent = { monitor: '監看與覆核', analysis: '廣告分析', topics: '議題分析' }[state.view];
+  $('metrics').hidden = isTopics || state.view === 'wall';
+  $('page-title').textContent = { monitor: '監看與覆核', wall:'四台畫面', analysis: '廣告分析', topics: '議題分析' }[state.view];
   $('page-description').textContent = {
     monitor: '核對時間、回看證據，從同一條時間軸預覽 Excel。',
+    wall: '切換分鐘，比對四台側錄影格、播出區段與示範收視。',
     analysis: '依播出區段比較競台廣告破口與資料覆蓋率。',
     topics: '以同一議題比對各台播出、對應收視與平台瀏覽數。',
   }[state.view];
@@ -280,6 +320,8 @@ function render() {
     renderInspector();
     renderTimeline();
     renderSheet();
+  } else if (state.view === 'wall') {
+    renderWall();
   } else if (isTopics) {
     renderTopics();
   } else {
@@ -336,7 +378,28 @@ document.querySelectorAll('[data-view]').forEach((button) => button.addEventList
 $('timeline').addEventListener('click', (event) => selectSegment(event.target));
 $('ad-body').addEventListener('click', (event) => selectSegment(event.target, true));
 $('topic-airings').addEventListener('click', (event) => selectSegment(event.target, true));
-$('business-cards').addEventListener('click', (event) => selectSegment(event.target, true));
+$('business-cards').addEventListener('click', (event) => {
+  const link = event.target.closest('[data-wall-minute]');
+  if (!link) return selectSegment(event.target, true);
+  state.filter='all';
+  changeWallMinute(Number(link.dataset.wallMinute));
+  state.view='wall';
+  render();
+  $('wall-minute').focus();
+});
+function changeWallMinute(minute) {
+  state.minute=minute;
+  state.page=Math.floor(minute/PAGE_SIZE);
+  state.segment=null;
+  renderWall();
+}
+$('wall-prev').addEventListener('click', () => changeWallMinute(state.minute-1));
+$('wall-next').addEventListener('click', () => changeWallMinute(state.minute+1));
+$('wall-minute').addEventListener('input', e => changeWallMinute(Number(e.target.value)));
+$('wall-grid').addEventListener('click', e => {
+  const b=e.target.closest('[data-channel]');
+  if (b) choose(b.dataset.channel,Number(b.dataset.minute),null,true);
+});
 $('business-topic').innerHTML = '<option value="">全部議題</option>' + TOPIC_DEMO.topics.map(({ id, name }) => `<option value="${id}">${name}</option>`).join('');
 $('business-topic').addEventListener('change', (event) => {
   state.topic = event.target.value || null;
