@@ -27,6 +27,18 @@ const cellChanged = (minute, id) =>
 const isUncertain = (cell) => cell.status === 'pending' || cell.status === 'gap';
 const minuteFrame = (channel, minute) => `assets/frames/${channel}/${String(minute).padStart(2,'0')}.jpg`;
 const segmentFrame = (channel, start) => `assets/segments/${channel}/${start}.jpg`;
+// Each entry describes the original recording at MM:15, independently of the synthetic Excel tracks.
+const recordingAds = {
+  tvbs: {38:'冷氣廣告',39:'機車廣告',47:'家電促銷',49:'家具促銷'},
+  ebc: {35:'家電廣告',38:'除臭產品廣告',45:'杏仁飲品廣告',47:'保健食品廣告'},
+  ftv: {38:'金融商品包框廣告',55:'機車廣告',58:'汽車包框廣告'},
+  cts: {35:'電器展廣告',42:'汽車廣告',49:'保健食品廣告',57:'汽車廣告'},
+};
+function commercialExample(channel,segment) {
+  const minutes=Object.keys(recordingAds[channel]).map(Number);
+  const minute=minutes.reduce((a,b)=>Math.abs(b*60+15-segment.start)<Math.abs(a*60+15-segment.start)?b:a);
+  return {offset:minute*60+15,image:minuteFrame(channel,minute),label:recordingAds[channel][minute]};
+}
 
 // Synthetic minute series. Preserve the published comparison cases and their baselines.
 const demoRatings = Object.fromEntries(DEMO.channels.map(({id}, i) => [id,
@@ -58,9 +70,9 @@ function renderWall() {
     const events = source().tracks[id].filter(s => cell.segments.includes(s.id));
     const current = demoRatings[id][m];
     const before = demoRatings[id][m-1];
-    return `<article class="wall-card"><header><h3>${name}</h3><span class="pill ${cell.status}">${statusLabels[cell.status]}</span></header>
+    return `<article class="wall-card"><header><h3>${name}</h3><span>${recordingAds[id][m] || '原片取樣'}</span></header>
       <img width="640" height="360" src="${minuteFrame(id,m)}" alt="${name}側錄位移 ${elapsed(m*60+15)} 的畫面">
-      <div class="wall-detail"><strong>${events.map(s => s.label || statusLabels[s.type]).join('／')}</strong>
+      <div class="wall-detail"><strong>示範填表 · ${events.map(s => s.label || statusLabels[s.type]).join('／')}</strong>
       <p>示範收視 <b>${current == null ? '未取得' : ratingText(current)}</b> · 較前分鐘 ${current == null || before == null ? '—' : deltaText(current-before)+' 個百分點'}</p>
       <button class="business-link" data-channel="${id}" data-minute="${m}">回查 ${cellCode(m,id)} 分鐘格</button></div></article>`;
   }).join('');
@@ -99,18 +111,32 @@ function renderMetrics() {
 
 function renderTimeline() {
   const axis = ['12:00', '12:15', '12:30', '12:45', '13:00'];
+  const recording=$('timeline-mode').value==='recording';
+  $('timeline-note').textContent=recording ? '各檔自 12:00 起算；縮圖左緣對準取樣時間。「廣告」表示該影格已人工核對，未標示者為一般取樣。' : '區段與標題為填表示範。廣告縮圖採同台廣告實例，原片位移見回查。';
+  $('timeline-mode').closest('.panel-head').querySelector('.legend').hidden=recording;
   const lanes = DEMO.channels.map(({ id, name }) =>
     `<div class="timeline-row"><span class="lane-label">${name}</span><div class="track" role="group" aria-label="${name}播出區段">
-      ${source().tracks[id].map((segment) => {
+      ${recording ? recordingLane(id,name) : source().tracks[id].map((segment) => {
         const selected = state.channel === id && state.segment === segment.id;
         const label = segment.type === 'news' ? segment.label : statusLabels[segment.type];
-        const summary = `${name} ${stamp(segment.start)} 至 ${stamp(segment.end)}，示範標記：${label}，原片位移 +${elapsed(segment.start)}`;
+        const example=segment.type==='ad' ? commercialExample(id,segment) : null;
+        const summary = `${name} ${stamp(segment.start)} 至 ${stamp(segment.end)}，示範標記：${label}，原片位移 +${elapsed(example?.offset ?? segment.start)}`;
         return `<button class="segment ${segment.type === 'ad' ? 'commercial' : segment.type}"
           style="--duration:${length(segment)}" data-channel="${id}" data-segment="${segment.id}"
-          aria-label="${summary}" title="${summary}" aria-pressed="${selected}"><img src="${segmentFrame(id,segment.start)}" width="640" height="360" alt=""><span>${length(segment) >= 180 ? label : ''}</span></button>`;
+          aria-label="${summary}" title="${summary}" aria-pressed="${selected}"><img src="${example?.image ?? segmentFrame(id,segment.start)}" width="640" height="360" alt=""><span>${length(segment) >= 180 || example ? label : ''}</span></button>`;
       }).join('')}
     </div></div>`).join('');
   $('timeline').innerHTML = `<div class="timeline-row" aria-hidden="true"><span></span><div class="ticks">${axis.map((time) => `<span>${time}</span>`).join('')}</div></div>${lanes}`;
+}
+
+function recordingLane(id,name) {
+  const points=[...new Set([...Array.from({length:12},(_,i)=>i*5),...Object.keys(recordingAds[id]).map(Number)])].sort((a,b)=>a-b);
+  return '<span style="flex:15 1 0"></span>'+points.map((m,i)=>{
+    const ad=recordingAds[id][m];
+    const offset=m*60+15;
+    const description=`${name} 原片 +${elapsed(offset)} · ${ad || '取樣影格'}`;
+    return `<button class="segment ${ad?'commercial':'news'}" style="--duration:${(i+1<points.length?points[i+1]*60+15:3600)-offset}" data-recording-minute="${m}" data-channel="${id}" title="${description}" aria-label="${description}" aria-pressed="${id===state.channel && m===state.minute && state.frameMode==='minute'}"><img src="${minuteFrame(id,m)}" alt=""><span>${ad?'廣告':elapsed(offset)}</span></button>`;
+  }).join('');
 }
 
 function filteredMinutes() {
@@ -157,8 +183,11 @@ function renderInspector() {
     ?? lane.find((entry) => cell.segments.includes(entry.id));
   state.segment = selected.id;
   const segmentStill = state.frameMode === 'segment';
-  const offset = segmentStill ? selected.start : minute*60+15;
-  const still = segmentStill ? segmentFrame(channel,selected.start) : minuteFrame(channel,minute);
+  const example=segmentStill && selected.type==='ad' ? commercialExample(channel,selected) : null;
+  const offset = example?.offset ?? (segmentStill ? selected.start : minute*60+15);
+  const still = example?.image ?? (segmentStill ? segmentFrame(channel,selected.start) : minuteFrame(channel,minute));
+  const verifiedAd = !segmentStill && recordingAds[channel][minute];
+  const sourceLabel = example ? '同台廣告實例 · '+example.label : verifiedAd ? '已核對廣告 · '+verifiedAd : segmentStill ? '區段起點影格' : '分鐘取樣影格';
   const demoCase = channel === SAMPLE.channel && minute === SAMPLE.minute;
   const isDiff = state.version === 'reviewed' && cellChanged(minute, channel);
   const clip = demoCase;
@@ -171,7 +200,7 @@ function renderInspector() {
   $('inspector').innerHTML = `
     <div class="panel-head">
       <div><h2 id="inspector-title" tabindex="-1">證據回查</h2><p class="mono">${name} · ${minuteTime(minute)} · ${cellCode(minute, channel)}</p></div>
-      <span class="pill ${isDiff ? 'news' : cell.status}">${isDiff ? '已修訂' : statusLabels[cell.status]}</span>
+      <span class="pill ${isDiff ? 'news' : cell.status}">示範格位 · ${isDiff ? '已修訂' : statusLabels[cell.status]}</span>
     </div>
     <div class="inspector-body">
       <div class="inspect-context"><strong>${cell.value || '延續留白'}</strong>
@@ -182,7 +211,7 @@ function renderInspector() {
           <img src="${still}" alt="${name} 11/06 側錄檔案位移 ${elapsed(offset)}" width="640" height="360">
           <span class="media-badge">11/06 原片參考</span>
         </div>
-        <figcaption class="subtle">${segmentStill ? '區段起點影格' : '分鐘取樣影格'} · 原片位移 <span class="mono">+${elapsed(offset)}</span> · 以下文字為合成示例。</figcaption>
+        <figcaption class="subtle">${sourceLabel} · 原片位移 <span class="mono">+${elapsed(offset)}</span> · 以下文字為合成示例。</figcaption>
         ${clip ? `<button type="button" class="clip-button" data-action="clip">${icon('play')}播放原片節錄</button>` : ''}
       </figure>
       <dl class="evidence">
@@ -380,7 +409,12 @@ document.querySelectorAll('[data-view]').forEach((button) => button.addEventList
   state.view = button.dataset.view;
   render();
 }));
-$('timeline').addEventListener('click', (event) => selectSegment(event.target));
+$('timeline-mode').addEventListener('change',renderTimeline);
+$('timeline').addEventListener('click', event => {
+  const frame=event.target.closest('[data-recording-minute]');
+  if(frame) choose(frame.dataset.channel,Number(frame.dataset.recordingMinute),null,true);
+  else selectSegment(event.target);
+});
 $('break-rows').addEventListener('click', (event) => selectSegment(event.target, true));
 $('topic-airings').addEventListener('click', (event) => selectSegment(event.target, true));
 $('business-cards').addEventListener('click', (event) => {
