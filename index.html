@@ -8,8 +8,9 @@
   <link rel="stylesheet" href="styles.css?v=compact-timeline">
   <script src="sample-data.js" defer></script>
   <script src="official-data.js" defer></script>
+  <script src="recording-data.js" defer></script>
   <script src="topic-data.js" defer></script>
-  <script src="app.js?v=official-segments" defer></script>
+  <script src="app.js?v=nov-recordings" defer></script>
 </head>
 <body>
   <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -50,6 +51,7 @@
         <div class="version-control">
           <label for="version">資料版本</label>
           <select id="version">
+            <option value="recording">11/06 四台側錄監看</option>
             <option value="official">10/26 官方 Excel 範例</option>
             <option value="original">自動原始版（示範）</option>
             <option value="reviewed" disabled>覆核修訂版（示範）</option>
@@ -135,6 +137,10 @@
         <label for="business-topic" class="sr-only">選擇分析議題</label><select id="business-topic"></select>
       </div>
       <div id="business-cards" class="business-cards"></div>
+    </section>
+    <section id="recording-topics" class="panel" hidden>
+      <div class="panel-head"><div><h2>11/06 四台議題播出紀錄</h2><p>依五字標整理本次側錄；同台續報或重播分次列出。點選分鐘可回查畫面。</p></div></div>
+      <div class="topic-scroll"><table class="topic-table"><thead><tr><th>議題</th><th>TVBS</th><th>東森</th><th>民視</th><th>華視</th></tr></thead><tbody id="recording-topic-rows"></tbody></table></div>
     </section>
     <div id="topics-view" class="topics-workspace" hidden>
       <section class="panel" aria-labelledby="topic-timeline-title">
